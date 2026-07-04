@@ -54,6 +54,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--max_tokens", type=int, default=16384, help="LLM max new tokens")
     p.add_argument("--temperature", type=float, default=0.2, help="LLM temperature")
     p.add_argument("--top_p", type=float, default=1.0, help="LLM top_p")
+    p.add_argument("--reasoning_effort", default="medium", choices=["minimal", "low", "medium", "high"], help="Reasoning effort for OpenAI/Codex reasoning models")
     # multi-task controls
     p.add_argument("--first_n", type=int, default=0, help="When arch_py is a directory, take the first N tasks (sorted)")
     p.add_argument("--num_tasks", type=int, default=1, help="When sampling, how many tasks to pick (if >0 and first_n=0)")
@@ -150,6 +151,7 @@ def _make_llm_caller(args):
         max_tokens=args.max_tokens,
             temperature=args.temperature,
             top_p=args.top_p,
+            reasoning_effort=args.reasoning_effort,
             server_address=args.server_address,
             server_port=args.server_port,
             log_path=str(log_path) if log_path else None,

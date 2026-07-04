@@ -56,7 +56,7 @@ python3 main.py KernelBench/level1/1_Square_matrix_multiplication_.py  --gpu "Qu
 
 Testing with the local Codex CLI:
 ```bash
-python3 main.py KernelBench/level1/1_Square_matrix_multiplication_.py  --gpu "RTX 3090"   --server_type codex   --model_name gpt-5.5   --device 0   --round 10   --subproc_id 0
+python3 main.py KernelBench/level1/1_Square_matrix_multiplication_.py  --gpu "RTX 3090"   --server_type codex   --model_name gpt-5.5   --reasoning_effort high   --device 0   --round 10   --subproc_id 0
 
 ```
-The Codex backend calls `codex exec --json --skip-git-repo-check --ephemeral -s read-only --disable memories` and passes prompts through stdin. Use `--model_name` to select the Codex model and `--server_type codex` to enable this backend.
+The Codex backend calls `codex exec --json --skip-git-repo-check --ephemeral -s read-only --disable memories` and passes prompts through stdin. Use `--model_name` to select the Codex model, `--reasoning_effort` to set `model_reasoning_effort`, and `--server_type codex` to enable this backend.
