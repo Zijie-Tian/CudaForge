@@ -78,6 +78,9 @@ def profile_bench(
     conda_bin: str = "/root/miniconda3/envs/CudaForge/bin",
     out_csv: Union[str, Path] = "ncu_temp.csv",
     repeat: int = 100,
+    device_idx: int = 0,
+    ref_py: Optional[Union[str, Path]] = None,
+    test_py: Optional[Union[str, Path]] = None,
 ) -> Path:
     ncu_bin = shutil.which("ncu") or "/usr/bin/ncu"
     csv_path = Path(out_csv).resolve()
@@ -105,7 +108,12 @@ def profile_bench(
         "--launch-count=20",
         sys.executable, bench_py,
         "--repeat", str(repeat),
+        "--device-idx", str(device_idx),
     ]
+    if ref_py is not None:
+        cmd.extend(["--ref", str(Path(ref_py).resolve())])
+    if test_py is not None:
+        cmd.extend(["--test", str(Path(test_py).resolve())])
 
     # Choose insertion strategy based on number of kernel names
     if kernel_names:

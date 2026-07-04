@@ -558,7 +558,12 @@ def _run_single_task(task_path: Path, args, batch_dir: Path) -> Dict[str, Any]:
                 print("=============================================================")
                 print(f"Detected kernel names: {kernel_names}")
                 csv_path = profile_bench(
-                    bench_py=f"bench_ref_inputs_{args.subproc_id}.py", out_csv=f"ncu_temp_{args.subproc_id}.csv")
+                    bench_py="bench_ref_inputs_0.py",
+                    out_csv=f"ncu_temp_{args.subproc_id}.csv",
+                    device_idx=args.device,
+                    ref_py=ref_py,
+                    test_py=test_kernel,
+                )
                 metrics_df = load_ncu_metrics(csv_path, extra_keep=("Kernel Name",),
                                               name_list=kernel_names, select="last")
                 metrics_block = metrics_to_prompt(metrics_df)
