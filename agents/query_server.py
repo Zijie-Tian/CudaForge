@@ -1,6 +1,7 @@
-from agents.llm_local import get_llm, GenerationConfig
+import json
 import os
-
+import shutil
+import subprocess
 from utils.print_utils import print_bold
 
 TOGETHER_KEY = os.environ.get("TOGETHER_API_KEY")
@@ -32,6 +33,102 @@ def colorize_finish_reason(reason: Optional[str]) -> str:
         return f"\033[90mFinish reason: unknown{reset_color}"
     color = colors.get(reason, "\033[90m")  # Default to grey
     return f"{color}Finish reason: {reason}{reset_color}"
+
+def _prompt_to_text(prompt: str | list[dict]) -> str:
+    if isinstance(prompt, str):
+        return prompt
+    chunks = []
+    for message in prompt:
+        role = message.get("role", "user")
+        content = message.get("content", "")
+        chunks.append(f"{role}: {content}")
+    return "\n\n".join(chunks)
+
+
+def _query_codex(
+    prompt: str | list[dict],
+    system_prompt: str,
+    model_name: str,
+    reasoning_effort: str,
+    log_path: Optional[str],
+    call_type: str,
+    round_idx: int,
+) -> str:
+    exe = shutil.which("codex")
+    if not exe:
+        raise RuntimeError("codex executable not found in PATH")
+
+    cmd = [
+        exe, "exec", "--json",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "-s", "read-only",
+        "--disable", "memories",
+        "-c", f"model_reasoning_effort={reasoning_effort}",
+    ]
+    if model_name and model_name != "default":
+        cmd += ["-m", model_name]
+
+    full_prompt = (
+        "System instructions:\n"
+        f"{system_prompt}\n\n"
+        "User request:\n"
+        f"{_prompt_to_text(prompt)}"
+    )
+    proc = subprocess.run(
+        cmd,
+        input=full_prompt,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "codex exec failed")
+
+    final_text = ""
+    usage: dict = {}
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "item.completed":
+            item = event.get("item", {})
+            if item.get("type") == "agent_message":
+                final_text = item.get("text", final_text)
+        elif event.get("type") == "turn.completed":
+            usage = event.get("usage") or {}
+
+    input_tokens = usage.get("input_tokens", 0) or 0
+    output_tokens = usage.get("output_tokens", 0) or 0
+    reasoning_tokens = usage.get("reasoning_output_tokens", 0) or 0
+    total_tokens = usage.get("total_tokens")
+    if total_tokens is None:
+        total_tokens = input_tokens + output_tokens + reasoning_tokens
+
+    usage_str = (
+        f"Usage: In={input_tokens}, Out={output_tokens}, "
+        f"Reasoning={reasoning_tokens}, Total={total_tokens}"
+    )
+    print(usage_str)
+    if log_path and log_path != "":
+        try:
+            import datetime
+            file_exists = os.path.exists(log_path)
+            with open(log_path, "a", encoding="utf-8") as f:
+                if not file_exists:
+                    f.write("timestamp,round_idx,call_type,input_tokens,output_tokens,total_tokens\n")
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"{timestamp},{round_idx},{call_type},{input_tokens},{output_tokens},{total_tokens}\n")
+        except Exception as e:
+            print(f"Warning: Failed to write usage log to {log_path}: {e}")
+
+    return final_text
+
 
 def query_server(
     prompt: str | list[dict],
@@ -112,11 +209,15 @@ def query_server(
             client = OpenAI(api_key=OPENAI_KEY)
             model = model_name
 
+        case "codex":
+            model = model_name
+
         case _:
             raise NotImplementedError(f"Unsupported server_type: {server_type}")
 
     # ------------------ Local / vLLM --------------------
     if server_type in {"local", "vllm"}:
+        from agents.llm_local import get_llm, GenerationConfig
         assert isinstance(prompt, str), "Only string prompt supported for local/vllm model"
         cfg = GenerationConfig(
             max_new_tokens=max_tokens,
@@ -131,6 +232,17 @@ def query_server(
             cfg,
         )
         return output
+
+    if server_type == "codex":
+        return _query_codex(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model_name=model,
+            reasoning_effort=reasoning_effort,
+            log_path=log_path,
+            call_type=call_type,
+            round_idx=round_idx,
+        )
 
     # ------------------ Cloud APIs ---------------------
     outputs = []

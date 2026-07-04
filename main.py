@@ -41,7 +41,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Path to a single task .py file OR a directory containing many tasks (.py)",
     )
     p.add_argument("--gpu", default="Quadro RTX 6000", help="GPU name in prompt spec")
-    p.add_argument("--server_type", default="local", help="LLM provider (local, openai, deepseek, vllm, etc.)")
+    p.add_argument("--server_type", default="local", help="LLM provider (local, openai, codex, deepseek, vllm, etc.)")
     p.add_argument("--server_address", default="localhost", help="LLM server address (for vllm/sglang)")
     p.add_argument("--server_port", type=int, default=8000, help="LLM server port (for vllm/sglang)")
     p.add_argument("--model_name", default="deepseek-ai/deepseek-coder-6.7b-instruct", help="LLM model")
